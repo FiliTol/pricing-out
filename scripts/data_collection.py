@@ -3,6 +3,7 @@ import subprocess
 import sqlite3
 from sqlite3 import Cursor
 import pandas as pd
+from tqdm import tqdm
 
 
 def check_folder_exist():
@@ -97,7 +98,7 @@ def insert_tsv(day: str) -> None:
 
 def retrieve_all() -> None:
     days: list = pd.date_range(start="2009-01-03", end="2009-02-03", freq="D").strftime("%Y%m%d").tolist()
-    for i in days:
+    for i in tqdm(days):
         retrieve_day(i)
         insert_tsv(i)
 
