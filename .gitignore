@@ -3,6 +3,6 @@ venv/
 pricing_out.md
 data/
 notebook/pricing-out_files/
-notebook/pricing_out.html
-notebook/pricing_out.ipynb
+notebook/pricing-out.html
+notebook/pricing-out.ipynb
 
