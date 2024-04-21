@@ -83,24 +83,6 @@ def retrieve_day(day: str) -> None:
         print(f"No blocks on day {day}")
 
 
-## Old version
-#def insert_tsv():
-#    data_folder: str = os.path.relpath("../data/timechain")
-#    ls: list = os.listdir(data_folder)
-#
-#    conn: sqlite3.Connection = sqlite3.connect("../data/timechain.sqlite")
-#    cursor: Cursor = conn.cursor()
-#
-#    for el in ls:
-#        mode = """.mode tabs"""
-#        insert = f""".import ../data/timechain/{el} blocks --skip 1"""
-#        subprocess.run(["sqlite3", "../data/timechain.sqlite", mode, insert])
-#
-#    conn.commit()
-#    cursor.close()
-#    conn.close()
-
-
 def insert_tsv(day: str) -> None:
     data_folder: str = "../data/timechain"
     template: str = "blockchair_bitcoin_blocks_"
@@ -125,5 +107,6 @@ def retrieve_all() -> None:
             print(f"Error in removing tsv for {i}")
 
 
+check_folder_exist()
 create_table()
 retrieve_all()
