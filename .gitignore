@@ -1,0 +1,8 @@
+venv/
+.idea/
+pricing_out.md
+data/
+notebook/pricing-out_files/
+notebook/pricing_out.html
+notebook/pricing_out.ipynb
+
