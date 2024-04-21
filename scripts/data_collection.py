@@ -3,7 +3,7 @@ import subprocess
 import sqlite3
 from sqlite3 import Cursor
 import pandas as pd
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 def check_folder_exist():
