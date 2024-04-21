@@ -4,8 +4,6 @@ import sqlite3
 from sqlite3 import Cursor
 import pandas as pd
 
-
-import os
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -109,6 +107,9 @@ def retrieve_all() -> None:
             os.remove(f"../data/timechain/blockchair_bitcoin_blocks_{i}.tsv")
         except:
             print(f"Error in removing tsv for {i}")
+
+        if i == "20240420":
+            break
 
 
 check_folder_exist()
