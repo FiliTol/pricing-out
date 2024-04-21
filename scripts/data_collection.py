@@ -1,8 +1,8 @@
 import os
 import subprocess
 import sqlite3
-import csv
 from sqlite3 import Cursor
+import pandas as pd
 
 
 def check_folder_exist():
@@ -14,15 +14,6 @@ def check_folder_exist():
     tsv_folder = r'../data/timechain/'
     if not os.path.exists(tsv_folder):
         os.makedirs(tsv_folder)
-
-
-def drop_blocs_table() -> None:
-    conn: sqlite3.Connection = sqlite3.connect("../data/timechain.sqlite")
-    cursor: Cursor = conn.cursor()
-    cursor.execute("DROP TABLE IF EXISTS blocks")
-    conn.commit()
-    cursor.close()
-    conn.close()
 
 
 def create_table() -> None:
@@ -77,40 +68,62 @@ def create_table() -> None:
 
 
 def retrieve_day(day: str) -> None:
+    data_folder: str = "../data/timechain"
     template: str = "blockchair_bitcoin_blocks_"
     extension: str = ".tsv.gz"
     page: str = "https://gz.blockchair.com/bitcoin/blocks/"
 
     try:
         day_data: subprocess.CompletedProcess = subprocess.run(
-            f"wget -P ../data/timechain {page}{template}{day}{extension} && gzip -d ../data/timechain/{template}{day}{extension}",
+            f"wget -P {data_folder} {page}{template}{day}{extension} && gzip -d {data_folder}/{template}{day}{extension}",
             shell=True,
             executable="/bin/bash",
         )
     except:
-        BaseException
+        print(f"No blocks on day {day}")
 
 
-def insert_tsv():
-    data_folder: str = os.path.relpath("../data/timechain")
-    ls: list = os.listdir(data_folder)
+## Old version
+#def insert_tsv():
+#    data_folder: str = os.path.relpath("../data/timechain")
+#    ls: list = os.listdir(data_folder)
+#
+#    conn: sqlite3.Connection = sqlite3.connect("../data/timechain.sqlite")
+#    cursor: Cursor = conn.cursor()
+#
+#    for el in ls:
+#        mode = """.mode tabs"""
+#        insert = f""".import ../data/timechain/{el} blocks --skip 1"""
+#        subprocess.run(["sqlite3", "../data/timechain.sqlite", mode, insert])
+#
+#    conn.commit()
+#    cursor.close()
+#    conn.close()
 
-    conn: sqlite3.Connection = sqlite3.connect("../data/timechain.sqlite")
-    cursor: Cursor = conn.cursor()
 
-    for el in ls:
-        mode = """.mode tabs"""
-        insert = f""".import ../data/timechain/{el} blocks --skip 1"""
-        #cursor.execute(mode)
-        #cursor.execute(insert)
+def insert_tsv(day: str) -> None:
+    data_folder: str = "../data/timechain"
+    template: str = "blockchair_bitcoin_blocks_"
+    extension: str = ".tsv"
+    mode: str = """.mode tabs"""
+    insert: str = f""".import {data_folder}/{template}{day}{extension} blocks --skip 1"""
+    try:
         subprocess.run(["sqlite3", "../data/timechain.sqlite", mode, insert])
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+    except:
+        print(f"Error in inserting tsv for {day}")
 
 
-check_folder_exist()
+def retrieve_all() -> None:
+    days: list = pd.date_range(start="2009-01-03", end="2009-02-03", freq="D").strftime("%Y%m%d").tolist()
+    for i in days:
+        retrieve_day(i)
+        insert_tsv(i)
+
+        try:
+            os.remove(f"../data/timechain/blockchair_bitcoin_blocks_{i}.tsv")
+        except:
+            print(f"Error in removing tsv for {i}")
+
+
 create_table()
-#retrieve_day("20240415")
-insert_tsv()
+retrieve_all()
