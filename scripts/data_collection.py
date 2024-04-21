@@ -6,6 +6,10 @@ import pandas as pd
 from tqdm.auto import tqdm
 
 
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+
 def check_folder_exist():
     # Check data folder
     db_folder = r'../data/'
