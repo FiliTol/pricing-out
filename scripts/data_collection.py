@@ -9,6 +9,9 @@ import subprocess
 import multiprocessing as mp
 import time
 
+import tqdm
+from p_tqdm import p_map
+
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -128,13 +131,13 @@ if __name__ == "__main__":
     check_folder_exist()
     create_table()
 
-    days = pd.date_range(start="2009-01-03", end="2024-04-21", freq="D").strftime("%Y%m%d").tolist()
+    days = pd.date_range(start="2009-01-03", end="2009-04-21", freq="D").strftime("%Y%m%d").tolist()
 
-    with mp.Pool(5) as p:
-        p.map(retrieve_day, days)
-    with mp.Pool(5) as p:
-        p.map(extract_gz, days)
-    for i in days:
+    # with mp.Pool(10) as p:
+    p_map(retrieve_day, days)
+    # with mp.Pool(10) as p:
+    p_map(extract_gz, days)
+    for i in tqdm.tqdm(days):
         insert_tsv(i)
 
     print("--- %s seconds ---" % (time.time() - start_time))
