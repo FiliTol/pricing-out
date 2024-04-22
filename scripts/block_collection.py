@@ -15,6 +15,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 db_folder: str = r"../data/"
 db_file: str = f"{db_folder}timechain.sqlite"
+db_table: str = "blocks"
 tsv_original_folder: str = f"{db_folder}timechain/original/"
 tsv_extracted_folder: str = f"{db_folder}timechain/extracted/"
 original_extension: str = ".tsv.gz"
@@ -40,8 +41,8 @@ def create_table() -> None:
     cursor: Cursor = conn.cursor()
 
     cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS blocks(
+        f"""
+        CREATE TABLE IF NOT EXISTS {db_table} (
             id INTEGER PRIMARY KEY,
             hash TEXT,
             time DATETIME,
