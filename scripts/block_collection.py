@@ -15,7 +15,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 db_table: str = "blocks"
 db_folder: str = r"../data/"
-db_file: str = f"{db_folder}{db_table}/timechain.sqlite"
+db_file: str = f"{db_folder}timechain.sqlite"
 tsv_original_folder: str = f"{db_folder}{db_table}/timechain/original/"
 tsv_extracted_folder: str = f"{db_folder}{db_table}/timechain/extracted/"
 original_extension: str = ".tsv.gz"
