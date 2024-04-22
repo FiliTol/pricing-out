@@ -2,24 +2,26 @@ import os
 import sqlite3
 from sqlite3 import Cursor
 import pandas as pd
-import aiohttp
-import asyncio
+import requests
 import gzip
 import shutil
 import subprocess
+import multiprocessing as mp
+
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
 def check_folder_exist():
-    # Check data folder
     db_folder = r'../data/'
     if not os.path.exists(db_folder):
         os.makedirs(db_folder)
-    # Check timechain folder
-    tsv_folder = r'../data/timechain/'
-    if not os.path.exists(tsv_folder):
-        os.makedirs(tsv_folder)
+    tsv_original_folder = r'../data/timechain/original/'
+    if not os.path.exists(tsv_original_folder):
+        os.makedirs(tsv_original_folder)
+    tsv_extracted_folder = r'../data/timechain/extracted/'
+    if not os.path.exists(tsv_extracted_folder):
+        os.makedirs(tsv_extracted_folder)
 
 
 def create_table() -> None:
@@ -67,37 +69,41 @@ def create_table() -> None:
         )
     """
                    )
-
     conn.commit()
     cursor.close()
     conn.close()
 
 
-async def retrieve_day_async(day: str) -> None:
-    data_folder: str = "../data/timechain"
+def retrieve_day(day: str) -> None:
+    data_original_folder: str = "../data/timechain/original"
     template: str = "blockchair_bitcoin_blocks_"
     extension: str = ".tsv.gz"
     page: str = "https://gz.blockchair.com/bitcoin/blocks/"
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{page}{template}{day}{extension}") as response:
-                day_data = await response.read()
-                with open(f"{data_folder}/{template}{day}{extension}", "wb") as f:
-                    f.write(day_data)
-                with gzip.open(f"{data_folder}/{template}{day}{extension}", "rb") as f_in:
-                    with open(f"{data_folder}/{template}{day}.tsv", "wb") as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-    except aiohttp.ClientError as client_err:
-        print(f"HTTP error occurred ({client_err}) for {day}")
+        data = requests.get(f"{page}{template}{day}{extension}")
+        with open(f"{data_original_folder}/{template}{day}{extension}", "wb") as f:
+            f.write(data.content)
     except Exception as err:
         print(f"An error occurred ({err}) for {day}")
 
-    os.remove(f"{data_folder}/{template}{day}{extension}")
+
+def extract_gz(day: str) -> None:
+    data_original_folder: str = "../data/timechain/original"
+    data_extracted_folder: str = "../data/timechain/extracted"
+    template: str = "blockchair_bitcoin_blocks_"
+    extension: str = ".tsv.gz"
+
+    try:
+        with gzip.open(f"{data_original_folder}/{template}{day}{extension}", "rb") as f_in:
+            with open(f"{data_extracted_folder}/{template}{day}.tsv", "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+    except Exception as err:
+        print(f"An error occurred ({err}) for {day}")
 
 
 def insert_tsv(day: str) -> None:
-    data_folder: str = "../data/timechain"
+    data_folder: str = "../data/timechain/extracted"
     template: str = "blockchair_bitcoin_blocks_"
     extension: str = ".tsv"
     mode: str = """.mode tabs"""
@@ -113,27 +119,15 @@ def insert_tsv(day: str) -> None:
         print(f"An error occurred ({err}) for {day}")
 
 
-async def retrieve_all_async() -> None:
-    days: list = pd.date_range(start="2009-01-03", end="2009-02-03", freq="D").strftime("%Y%m%d").tolist()
-    tasks = []
+if __name__ == "__main__":
+    check_folder_exist()
+    create_table()
+
+    days = pd.date_range(start="2009-01-03", end="2009-02-03", freq="D").strftime("%Y%m%d").tolist()
+
+    with mp.Pool(5) as p:
+        p.map(retrieve_day, days)
+
     for i in days:
-        try:
-            tasks.append(asyncio.create_task(retrieve_day_async(i)))
-            insert_tsv(i)
-
-        except Exception as e:
-            print(f"Error in removing tsv for {i}")
-
-        if i == "20240420":
-            break
-
-    await asyncio.gather(*tasks)
-
-
-async def main() -> None:
-    await retrieve_all_async()
-
-
-check_folder_exist()
-create_table()
-asyncio.run(main())
+        extract_gz(i)
+        insert_tsv(i)
