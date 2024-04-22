@@ -7,6 +7,7 @@ import gzip
 import shutil
 import subprocess
 import multiprocessing as mp
+import time
 
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -98,8 +99,11 @@ def extract_gz(day: str) -> None:
         with gzip.open(f"{data_original_folder}/{template}{day}{extension}", "rb") as f_in:
             with open(f"{data_extracted_folder}/{template}{day}.tsv", "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
+
     except Exception as err:
         print(f"An error occurred ({err}) for {day}")
+
+    os.remove(f"{data_original_folder}/{template}{day}{extension}")
 
 
 def insert_tsv(day: str) -> None:
@@ -120,14 +124,17 @@ def insert_tsv(day: str) -> None:
 
 
 if __name__ == "__main__":
+    start_time = time.time()
     check_folder_exist()
     create_table()
 
-    days = pd.date_range(start="2009-01-03", end="2009-02-03", freq="D").strftime("%Y%m%d").tolist()
+    days = pd.date_range(start="2009-01-03", end="2024-04-21", freq="D").strftime("%Y%m%d").tolist()
 
     with mp.Pool(5) as p:
         p.map(retrieve_day, days)
-
+    with mp.Pool(5) as p:
+        p.map(extract_gz, days)
     for i in days:
-        extract_gz(i)
         insert_tsv(i)
+
+    print("--- %s seconds ---" % (time.time() - start_time))
