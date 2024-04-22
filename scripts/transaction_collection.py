@@ -13,9 +13,9 @@ from p_tqdm import p_map
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-db_table: str = "blocks"
+db_table: str = "transactions"
 db_folder: str = r"../data/"
-db_file: str = f"{db_folder}{db_table}/timechain.sqlite"
+db_file: str = f"{db_folder}timechain.sqlite"
 tsv_original_folder: str = f"{db_folder}{db_table}/timechain/original/"
 tsv_extracted_folder: str = f"{db_folder}{db_table}/timechain/extracted/"
 original_extension: str = ".tsv.gz"
@@ -24,7 +24,7 @@ extracted_extension: str = ".tsv"
 page: str = f"https://gz.blockchair.com/bitcoin/{db_table}/"
 template: str = f"blockchair_bitcoin_{db_table}_"
 start: str = "2009-01-03"
-end: str = "2024-04-21"
+end: str = "2009-02-03"
 
 
 def check_folder_exist():
@@ -43,42 +43,28 @@ def create_table() -> None:
     cursor.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {db_table} (
-            id INTEGER PRIMARY KEY,
-            hash TEXT,
+            block_id INTEGER,
+            hash TEXT PRIMARY KEY,
             time DATETIME,
-            median_time DATETIME,
             size TEXT,
-            stripped_size TEXT,
             weight TEXT,
             version TEXT,
-            version_hex TEXT,
-            version_bits TEXT,
-            merkle_root TEXT,
-            nonce TEXT,
-            bits TEXT,
-            difficulty TEXT,
-            chainwork TEXT,
-            coinbase_data_hex TEXT,
-            transaction_count INTEGER,
-            witness_count INTEGER,
+            lock_time TEXT,
+            is_coinbase TEXT,
+            has_witness TEXT,
             input_count INTEGER,
             output_count INTEGER,
             input_total INTEGER,
             input_total_usd FLOAT,
             output_total INTEGER,
             output_total_usd FLOAT,
-            fee_total INTEGER,
-            fee_total_usd FLOAT,
+            fee INTEGER,
+            fee_usd FLOAT,
             fee_per_kb INTEGER,
             fee_per_kb_usd FLOAT,
             fee_per_kwu INTEGER,
             fee_per_kwu_usd FLOAT,
-            cdd_total INTEGER,
-            generation INTEGER,
-            generation_usd FLOAT,
-            reward INTEGER,
-            reward_usd FLOAT,
-            guessed_miner TEXT
+            cdd_total INTEGER
         )
     """
     )
@@ -119,7 +105,7 @@ def extract_gz(day: str) -> None:
 def insert_tsv(day: str) -> None:
     mode: str = """.mode tabs"""
     insert: str = (
-        f""".import {tsv_extracted_folder}{template}{day}{extracted_extension} blocks --skip 1"""
+        f""".import {tsv_extracted_folder}{template}{day}{extracted_extension} {db_table} --skip 1"""
     )
     try:
         subprocess.run(["sqlite3", db_file, mode, insert])
