@@ -13,21 +13,30 @@ from p_tqdm import p_map
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+db_folder: str = r"../data/"
+db_file: str = f"{db_folder}timechain.sqlite"
+tsv_original_folder: str = f"{db_folder}timechain/original/"
+tsv_extracted_folder: str = f"{db_folder}timechain/extracted/"
+original_extension: str = ".tsv.gz"
+extracted_extension: str = ".tsv"
+
+page: str = "https://gz.blockchair.com/bitcoin/blocks/"
+template: str = "blockchair_bitcoin_blocks_"
+start: str = "2009-01-03"
+end: str = "2024-04-21"
+
 
 def check_folder_exist():
-    db_folder = r"../data/"
     if not os.path.exists(db_folder):
         os.makedirs(db_folder)
-    tsv_original_folder = r"../data/timechain/original/"
     if not os.path.exists(tsv_original_folder):
         os.makedirs(tsv_original_folder)
-    tsv_extracted_folder = r"../data/timechain/extracted/"
     if not os.path.exists(tsv_extracted_folder):
         os.makedirs(tsv_extracted_folder)
 
 
 def create_table() -> None:
-    conn: sqlite3.Connection = sqlite3.connect("../data/timechain.sqlite")
+    conn: sqlite3.Connection = sqlite3.connect(db_file)
     cursor: Cursor = conn.cursor()
 
     cursor.execute(
@@ -78,51 +87,42 @@ def create_table() -> None:
 
 
 def retrieve_day(day: str) -> None:
-    data_original_folder: str = "../data/timechain/original"
-    template: str = "blockchair_bitcoin_blocks_"
-    extension: str = ".tsv.gz"
-    page: str = "https://gz.blockchair.com/bitcoin/blocks/"
 
     try:
-        data = requests.get(f"{page}{template}{day}{extension}")
-        with open(f"{data_original_folder}/{template}{day}{extension}", "wb") as f:
+        data = requests.get(f"{page}{template}{day}{original_extension}")
+        with open(
+            f"{tsv_original_folder}{template}{day}{original_extension}", "wb"
+        ) as f:
             f.write(data.content)
     except Exception as err:
         print(f"An error occurred ({err}) for {day}")
 
 
 def extract_gz(day: str) -> None:
-    data_original_folder: str = "../data/timechain/original"
-    data_extracted_folder: str = "../data/timechain/extracted"
-    template: str = "blockchair_bitcoin_blocks_"
-    extension: str = ".tsv.gz"
 
     try:
         with gzip.open(
-            f"{data_original_folder}/{template}{day}{extension}", "rb"
+            f"{tsv_original_folder}{template}{day}{original_extension}", "rb"
         ) as f_in:
-            with open(f"{data_extracted_folder}/{template}{day}.tsv", "wb") as f_out:
+            with open(
+                f"{tsv_extracted_folder}{template}{day}{extracted_extension}", "wb"
+            ) as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
     except Exception as err:
         print(f"An error occurred ({err}) for {day}")
 
-    os.remove(f"{data_original_folder}/{template}{day}{extension}")
+    os.remove(f"{tsv_original_folder}{template}{day}{original_extension}")
 
 
 def insert_tsv(day: str) -> None:
-    data_folder: str = "../data/timechain/extracted"
-    template: str = "blockchair_bitcoin_blocks_"
-    extension: str = ".tsv"
     mode: str = """.mode tabs"""
     insert: str = (
-        f""".import {data_folder}/{template}{day}{extension} blocks --skip 1"""
+        f""".import {tsv_extracted_folder}{template}{day}{extracted_extension} blocks --skip 1"""
     )
-
     try:
-        subprocess.run(["sqlite3", "../data/timechain.sqlite", mode, insert])
-        os.remove(f"{data_folder}/{template}{day}{extension}")
-
+        subprocess.run(["sqlite3", db_file, mode, insert])
+        os.remove(f"{tsv_extracted_folder}{template}{day}{extracted_extension}")
     except Exception as err:
         print(f"An error occurred ({err}) for {day}")
 
@@ -132,15 +132,8 @@ if __name__ == "__main__":
     check_folder_exist()
     create_table()
 
-    days = (
-        pd.date_range(start="2009-01-03", end="2024-04-21", freq="D")
-        .strftime("%Y%m%d")
-        .tolist()
-    )
-
-    # with mp.Pool(10) as p:
+    days = pd.date_range(start=start, end=end, freq="D").strftime("%Y%m%d").tolist()
     p_map(retrieve_day, days)
-    # with mp.Pool(10) as p:
     p_map(extract_gz, days)
     for i in tqdm.tqdm(days):
         insert_tsv(i)
