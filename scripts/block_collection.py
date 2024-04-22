@@ -1,29 +1,27 @@
+import gzip
 import os
+import shutil
 import sqlite3
+import subprocess
+import time
 from sqlite3 import Cursor
+
 import pandas as pd
 import requests
-import gzip
-import shutil
-import subprocess
-import multiprocessing as mp
-import time
-
 import tqdm
 from p_tqdm import p_map
-
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
 def check_folder_exist():
-    db_folder = r'../data/'
+    db_folder = r"../data/"
     if not os.path.exists(db_folder):
         os.makedirs(db_folder)
-    tsv_original_folder = r'../data/timechain/original/'
+    tsv_original_folder = r"../data/timechain/original/"
     if not os.path.exists(tsv_original_folder):
         os.makedirs(tsv_original_folder)
-    tsv_extracted_folder = r'../data/timechain/extracted/'
+    tsv_extracted_folder = r"../data/timechain/extracted/"
     if not os.path.exists(tsv_extracted_folder):
         os.makedirs(tsv_extracted_folder)
 
@@ -32,7 +30,8 @@ def create_table() -> None:
     conn: sqlite3.Connection = sqlite3.connect("../data/timechain.sqlite")
     cursor: Cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS blocks(
             id INTEGER PRIMARY KEY,
             hash TEXT,
@@ -72,7 +71,7 @@ def create_table() -> None:
             guessed_miner TEXT
         )
     """
-                   )
+    )
     conn.commit()
     cursor.close()
     conn.close()
@@ -99,7 +98,9 @@ def extract_gz(day: str) -> None:
     extension: str = ".tsv.gz"
 
     try:
-        with gzip.open(f"{data_original_folder}/{template}{day}{extension}", "rb") as f_in:
+        with gzip.open(
+            f"{data_original_folder}/{template}{day}{extension}", "rb"
+        ) as f_in:
             with open(f"{data_extracted_folder}/{template}{day}.tsv", "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
@@ -114,12 +115,12 @@ def insert_tsv(day: str) -> None:
     template: str = "blockchair_bitcoin_blocks_"
     extension: str = ".tsv"
     mode: str = """.mode tabs"""
-    insert: str = f""".import {data_folder}/{template}{day}{extension} blocks --skip 1"""
+    insert: str = (
+        f""".import {data_folder}/{template}{day}{extension} blocks --skip 1"""
+    )
 
     try:
-        subprocess.run(["sqlite3",
-                        "../data/timechain.sqlite",
-                        mode, insert])
+        subprocess.run(["sqlite3", "../data/timechain.sqlite", mode, insert])
         os.remove(f"{data_folder}/{template}{day}{extension}")
 
     except Exception as err:
@@ -131,7 +132,11 @@ if __name__ == "__main__":
     check_folder_exist()
     create_table()
 
-    days = pd.date_range(start="2009-01-03", end="2009-04-21", freq="D").strftime("%Y%m%d").tolist()
+    days = (
+        pd.date_range(start="2009-01-03", end="2024-04-21", freq="D")
+        .strftime("%Y%m%d")
+        .tolist()
+    )
 
     # with mp.Pool(10) as p:
     p_map(retrieve_day, days)
