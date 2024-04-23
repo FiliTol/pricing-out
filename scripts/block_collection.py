@@ -10,21 +10,23 @@ import pandas as pd
 import requests
 import tqdm
 from p_tqdm import p_map
+from pandas import DataFrame
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 db_table: str = "blocks"
 db_folder: str = r"../data/"
 db_file: str = f"{db_folder}timechain.sqlite"
-tsv_original_folder: str = f"{db_folder}{db_table}/timechain/original/"
-tsv_extracted_folder: str = f"{db_folder}{db_table}/timechain/extracted/"
+
+tsv_original_folder: str = f"{db_folder}{db_table}/original/"
+tsv_extracted_folder: str = f"{db_folder}{db_table}/extracted/"
 original_extension: str = ".tsv.gz"
 extracted_extension: str = ".tsv"
 
 page: str = f"https://gz.blockchair.com/bitcoin/{db_table}/"
 template: str = f"blockchair_bitcoin_{db_table}_"
 start: str = "2009-01-03"
-end: str = "2024-04-21"
+end: str = "2024-04-22"
 
 
 def check_folder_exist():
@@ -37,18 +39,20 @@ def check_folder_exist():
 
 
 def create_table() -> None:
-    # Assume that the connection creation will happen at the main function level
-    cursor.execute(
+
+    conn1: sqlite3.Connection = sqlite3.connect(db_file)
+    cursor1: Cursor = conn1.cursor()
+    cursor1.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {db_table} (
             id INTEGER PRIMARY KEY,
             hash TEXT,
-            time DATETIME,
-            median_time DATETIME,
-            size TEXT,
-            stripped_size TEXT,
-            weight TEXT,
-            version TEXT,
+            time TEXT,
+            median_time TEXT,
+            size INTEGER,
+            stripped_size INTEGER,
+            weight INTEGER,
+            version INTEGER,
             version_hex TEXT,
             version_bits TEXT,
             merkle_root TEXT,
@@ -67,11 +71,11 @@ def create_table() -> None:
             output_total_usd FLOAT,
             fee_total INTEGER,
             fee_total_usd FLOAT,
-            fee_per_kb INTEGER,
+            fee_per_kb FLOAT,
             fee_per_kb_usd FLOAT,
-            fee_per_kwu INTEGER,
+            fee_per_kwu FLOAT,
             fee_per_kwu_usd FLOAT,
-            cdd_total INTEGER,
+            cdd_total FLOAT,
             generation INTEGER,
             generation_usd FLOAT,
             reward INTEGER,
@@ -80,7 +84,9 @@ def create_table() -> None:
         )
     """
     )
-    conn.commit()
+    conn1.commit()
+    cursor1.close()
+    conn1.close()
 
 
 def retrieve_day(day: str) -> None:
@@ -125,15 +131,59 @@ def insert_tsv(day: str) -> None:
 
 def insert_tsv_test(day: str) -> None:
     query = f"""INSERT INTO {db_table} (
-    id, hash, time, median_time, size, stripped_size, weight, version, version_hex, version_bits, merkle_root, nonce,
-    bits, difficulty, chainwork, coinbase_data_hex, transaction_count, witness_count, input_count, output_count, input_total, input_total_usd,
-    output_total, output_total_usd, fee_total, fee_total_usd, fee_per_kb, fee_per_kb_usd, fee_per_kwu, fee_per_kwu_usd, cdd_total, generation,
+    id, hash, time, median_time, size, stripped_size, weight, version, version_hex, version_bits,
+    merkle_root, nonce,
+    bits, difficulty, chainwork, coinbase_data_hex, transaction_count, witness_count, input_count, output_count,
+    input_total, input_total_usd,
+    output_total, output_total_usd, fee_total, fee_total_usd, fee_per_kb, fee_per_kb_usd, fee_per_kwu, fee_per_kwu_usd,
+    cdd_total, generation,
     generation_usd, reward, reward_usd, guessed_miner
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+    ?)
     """
     try:
-        data = pd.read_csv(f'{tsv_extracted_folder}{template}{day}{extracted_extension}', sep='\t', header=0)
-        conn.executemany(query, data.to_records(index=False))
+        data: DataFrame = pd.read_table(f'{tsv_extracted_folder}{template}{day}{extracted_extension}',
+                                        sep='\t',
+                                        header=0,
+                                        dtype=dict(id=int,
+                                                   hash=str,
+                                                   time=str,
+                                                   median_time=str,
+                                                   size=int,
+                                                   stripped_size=int,
+                                                   weight=int,
+                                                   version=int,
+                                                   version_hex=str,
+                                                   version_bits=str,
+                                                   merkle_root=str,
+                                                   nonce=str,
+                                                   bits=str,
+                                                   difficulty=str,
+                                                   chainwork=str,
+                                                   coinbase_data_hex=str,
+                                                   transaction_count=int,
+                                                   witness_count=int,
+                                                   input_count=int,
+                                                   output_count=int,
+                                                   input_total=int,
+                                                   input_total_usd=float,
+                                                   output_total=int,
+                                                   output_total_usd=float,
+                                                   fee_total=int,
+                                                   fee_total_usd=float,
+                                                   fee_per_kb=float,
+                                                   fee_per_kb_usd=float,
+                                                   fee_per_kwu=float,
+                                                   fee_per_kwu_usd=float,
+                                                   cdd_total=float,
+                                                   generation=int,
+                                                   generation_usd=float,
+                                                   reward=int,
+                                                   reward_usd=float,
+                                                   guessed_miner=str
+                                                   ))
+
+        data.to_sql('blocks', conn, if_exists='append', index=False)
 
     except Exception as err:
         print(f"An error occurred ({err}) for {day}")
@@ -141,22 +191,22 @@ def insert_tsv_test(day: str) -> None:
 
 
 if __name__ == "__main__":
-    conn: sqlite3.Connection = sqlite3.connect(db_file)
-    cursor: Cursor = conn.cursor()
 
     start_time = time.time()
     check_folder_exist()
     create_table()
+
+    conn: sqlite3.Connection = sqlite3.connect(db_file)
+    cursor: Cursor = conn.cursor()
 
     days = pd.date_range(start=start, end=end, freq="D").strftime("%Y%m%d").tolist()
     p_map(retrieve_day, days)
     p_map(extract_gz, days)
     for i in tqdm.tqdm(days):
         insert_tsv_test(i)
-        if i % 100 == 0:
+        if days.index(i) % 100 == 0:
             conn.commit()
+    print("--- %s seconds ---" % (time.time() - start_time))
 
     cursor.close()
     conn.close()
-
-    print("--- %s seconds ---" % (time.time() - start_time))
