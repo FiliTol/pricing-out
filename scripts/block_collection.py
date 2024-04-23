@@ -37,9 +37,7 @@ def check_folder_exist():
 
 
 def create_table() -> None:
-    conn: sqlite3.Connection = sqlite3.connect(db_file)
-    cursor: Cursor = conn.cursor()
-
+    # Assume that the connection creation will happen at the main function level
     cursor.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {db_table} (
@@ -83,16 +81,13 @@ def create_table() -> None:
     """
     )
     conn.commit()
-    cursor.close()
-    conn.close()
 
 
 def retrieve_day(day: str) -> None:
-
     try:
         data = requests.get(f"{page}{template}{day}{original_extension}")
         with open(
-            f"{tsv_original_folder}{template}{day}{original_extension}", "wb"
+                f"{tsv_original_folder}{template}{day}{original_extension}", "wb"
         ) as f:
             f.write(data.content)
     except Exception as err:
@@ -100,13 +95,12 @@ def retrieve_day(day: str) -> None:
 
 
 def extract_gz(day: str) -> None:
-
     try:
         with gzip.open(
-            f"{tsv_original_folder}{template}{day}{original_extension}", "rb"
+                f"{tsv_original_folder}{template}{day}{original_extension}", "rb"
         ) as f_in:
             with open(
-                f"{tsv_extracted_folder}{template}{day}{extracted_extension}", "wb"
+                    f"{tsv_extracted_folder}{template}{day}{extracted_extension}", "wb"
             ) as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
@@ -117,18 +111,39 @@ def extract_gz(day: str) -> None:
 
 
 def insert_tsv(day: str) -> None:
-    mode: str = """.mode tabs"""
+    # mode: str = """.mode tabs"""
+    mode: str = """.separator \t"""
     insert: str = (
         f""".import {tsv_extracted_folder}{template}{day}{extracted_extension} blocks --skip 1"""
     )
     try:
         subprocess.run(["sqlite3", db_file, mode, insert])
-        os.remove(f"{tsv_extracted_folder}{template}{day}{extracted_extension}")
     except Exception as err:
         print(f"An error occurred ({err}) for {day}")
+    os.remove(f"{tsv_extracted_folder}{template}{day}{extracted_extension}")
+
+
+def insert_tsv_test(day: str) -> None:
+    query = f"""INSERT INTO {db_table} (
+    id, hash, time, median_time, size, stripped_size, weight, version, version_hex, version_bits, merkle_root, nonce,
+    bits, difficulty, chainwork, coinbase_data_hex, transaction_count, witness_count, input_count, output_count, input_total, input_total_usd,
+    output_total, output_total_usd, fee_total, fee_total_usd, fee_per_kb, fee_per_kb_usd, fee_per_kwu, fee_per_kwu_usd, cdd_total, generation,
+    generation_usd, reward, reward_usd, guessed_miner
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    try:
+        data = pd.read_csv(f'{tsv_extracted_folder}{template}{day}{extracted_extension}', sep='\t', header=0)
+        conn.executemany(query, data.to_records(index=False))
+
+    except Exception as err:
+        print(f"An error occurred ({err}) for {day}")
+    os.remove(f"{tsv_extracted_folder}{template}{day}{extracted_extension}")
 
 
 if __name__ == "__main__":
+    conn: sqlite3.Connection = sqlite3.connect(db_file)
+    cursor: Cursor = conn.cursor()
+
     start_time = time.time()
     check_folder_exist()
     create_table()
@@ -137,6 +152,11 @@ if __name__ == "__main__":
     p_map(retrieve_day, days)
     p_map(extract_gz, days)
     for i in tqdm.tqdm(days):
-        insert_tsv(i)
+        insert_tsv_test(i)
+        if i % 100 == 0:
+            conn.commit()
+
+    cursor.close()
+    conn.close()
 
     print("--- %s seconds ---" % (time.time() - start_time))

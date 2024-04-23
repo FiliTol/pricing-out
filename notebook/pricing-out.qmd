@@ -12,25 +12,22 @@ license: "CC BY"
 copyright: 
   holder: Filippo Tolin
   year: 2024
-citation: 
-  container-title: Journal of Psychoceramics
-  volume: 1
-  issue: 1
-  doi: 10.5555/12345678
 funding: "The author received no specific funding for this work."
 ---
 
 [Here is a nasty page where to find all blockchain data](https://gz.blockchair.com/bitcoin/blocks/)
 
 ```{python}
-import subprocess, sys, requests
+import sqlite3
+import pandas as pd
+import matplotlib.pyplot as plt
 
-day = "20090103"
-template = "blockchair_bitcoin_blocks_"
-extension = ".tsv.gz"
-page = "https://gz.blockchair.com/bitcoin/blocks/"
+conn = sqlite3.connect('../data/timechain.sqlite')
 
-data = subprocess.run(f"wget {page} {template} {day} {extension}")
+#timestamps = pd.read_sql_query("SELECT time FROM blocks WHERE id = 840000", conn)
+difficulty = pd.read_sql_query("SELECT difficulty FROM blocks WHERE id == 840000", conn)
 
-print(dat)
+print(difficulty)
+#plt.plot(difficulty,timestamps)
+
 ```
