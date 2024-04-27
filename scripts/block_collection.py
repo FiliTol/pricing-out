@@ -6,10 +6,12 @@ import subprocess
 import time
 from sqlite3 import Cursor
 
+import re
 import pandas as pd
 import requests
 from p_tqdm import p_map
 from pandas import DataFrame
+import tqdm
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -38,7 +40,6 @@ def check_folder_exist():
 
 
 def create_table() -> None:
-
     conn1: sqlite3.Connection = sqlite3.connect(db_file)
     cursor1: Cursor = conn1.cursor()
     cursor1.execute(
@@ -189,8 +190,34 @@ def insert_tsv_test(day: str) -> None:
     os.remove(f"{tsv_extracted_folder}{template}{day}{extracted_extension}")
 
 
-if __name__ == "__main__":
+# The following two functions are used to accurately retrieve data from the source page.
+# The reason for this is that the source page somehow returns empty files for certain days.
 
+
+def check_empty() -> list:
+    """
+    Check if some files in the extracted folder are empty.
+    If empty, removes them and adds their day a list.
+    :return: list of empty days
+    """
+    empty_days = []
+
+    for filename in os.listdir(tsv_extracted_folder):
+        if os.path.getsize(f"{tsv_extracted_folder}{filename}") == 0:
+            # extract the day from the filename
+            pattern = r"\d{8}"
+            day = re.findall(pattern, filename)[0]
+            empty_days.append(day)
+
+    return empty_days
+
+
+def remove_empty_files(empty_days: list) -> None:
+    for day in empty_days:
+        os.remove(f"{tsv_extracted_folder}{template}{day}{extracted_extension}")
+
+
+if __name__ == "__main__":
     start_time = time.time()
     check_folder_exist()
     create_table()
@@ -201,10 +228,19 @@ if __name__ == "__main__":
     days = pd.date_range(start=start, end=end, freq="D").strftime("%Y%m%d").tolist()
     p_map(retrieve_day, days)
     p_map(extract_gz, days)
-   # for i in tqdm.tqdm(days):
-   #     insert_tsv_test(i)
-   #     if days.index(i) % 100 == 0:
-   #         conn.commit()
+    empty_days = check_empty()
+
+    while len(empty_days) > 0:
+        remove_empty_files(empty_days)
+        for days in empty_days:
+            p_map(retrieve_day, days)
+            p_map(extract_gz, days)
+        empty_days = check_empty()
+
+    #for i in tqdm.tqdm(days):
+    #    insert_tsv_test(i)
+    #    if days.index(i) % 100 == 0:
+    #        conn.commit()
     print("--- %s seconds ---" % (time.time() - start_time))
 
     cursor.close()
