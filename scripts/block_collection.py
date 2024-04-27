@@ -8,7 +8,6 @@ from sqlite3 import Cursor
 
 import pandas as pd
 import requests
-import tqdm
 from p_tqdm import p_map
 from pandas import DataFrame
 
@@ -202,10 +201,10 @@ if __name__ == "__main__":
     days = pd.date_range(start=start, end=end, freq="D").strftime("%Y%m%d").tolist()
     p_map(retrieve_day, days)
     p_map(extract_gz, days)
-    for i in tqdm.tqdm(days):
-        insert_tsv_test(i)
-        if days.index(i) % 100 == 0:
-            conn.commit()
+   # for i in tqdm.tqdm(days):
+   #     insert_tsv_test(i)
+   #     if days.index(i) % 100 == 0:
+   #         conn.commit()
     print("--- %s seconds ---" % (time.time() - start_time))
 
     cursor.close()
